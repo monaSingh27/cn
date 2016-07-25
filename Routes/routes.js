@@ -229,6 +229,40 @@
 
 
 
+
+
+           router.route('/updateContact')
+                   .post(function(req,res){
+                     //var verificationToken = req.headers['token'];
+                     login.findOne({token:req.headers.token}, function(err,data){
+                       if(err){
+                         res.send("Error in query");
+                       }
+                       else if(data === null || undefined || ''){
+                         res.json("Token not found");
+                       }
+                       else{
+                         var emailToUpdate = req.body.emailToUpdate,
+                             updatedName = req.body.newName,
+                             updatedEmail = req.body.newEmail,
+                             updatedMobile = req.body.newMobile;
+                         contact.update({email : data.email},{$pull : {"contacts" : { "email" : emailToUpdate}}},function(err,result){
+                           if(err)
+                           	{console.log(err);}
+                           else{
+                             contact.update({email : data.email},{$push : {"contacts" : {"name" : updatedName,"email_id" : updatedEmail, "mobile" : updatedMobile}}},function(err,resultNew){
+                               if(err)
+                               	{console.log(err);}
+                               else
+                               	{res.send(resultNew);}
+                             });
+                           }
+                         });
+                       }
+                     });
+                   });
+
+
        //           router.route('/updatecontact/:email').post(function(req,res) {
 
        //           login.findOne({token:req.headers.token}, function(err, user) {

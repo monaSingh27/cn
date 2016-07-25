@@ -1,10 +1,11 @@
-   var express  = require('express');
+ var express  = require('express');
     var app      = express();                               
     var mongoose = require('mongoose');
     var router = express.Router();
     var jwt    = require('jsonwebtoken');
     var login = require('../models/login');
     var contact = require('../models/usercontact');
+
 
 
 
@@ -62,6 +63,8 @@
                message: 'token!',
                token: token
                 });
+            // res.cookie('token',req.headers.token);
+
            login.update( { email: req.body.email },  { $set: { token: token }},function(err,loginuser){
                  if(err){
                   console.log(err);}
@@ -85,6 +88,80 @@
        });
      });
 
+     // route middleware that will happen on every request
+     router.use(function(req, res, next) {
+
+         // log each request to the console
+         console.log(req.method, req.url);
+         //save cookie
+         res.cookie('token',req.headers.token,{expires: new Date(Date.now() + 2000) });
+         //res.cookie('rememberme', '1', { expires: new Date(Date.now() + 900000), httpOnly: true });
+
+
+
+    
+
+           var token = req.headers.token;
+           console.log("token"+token);
+            console.log("token1"+req.headers.token);
+
+
+       // decode token
+            if (token) {
+             console.log("token111"+token);
+
+         jwt.verify(token, 'superSecret', function(err, token_data) {
+           if (err) {
+              return res.status(403).send('Error');
+           } else {
+             req.user_data = token_data;
+             console.log("token_data"+req.user_data);
+             next();
+           }
+         });
+
+       } 
+
+       else {
+         return res.status(403).send('No token');
+       }
+  
+
+
+
+
+         // continue doing what we were doing and go to the route
+       
+     });
+
+
+
+//      app.use(function(req, res, next) {
+
+//       var token = req.cookies.token;
+//       console.log("token"+token);
+//        console.log("token1"+req.cookies.token);
+
+
+//   // decode token
+//        if (token) {
+//         console.log("token111"+token);
+
+//     jwt.verify(token, 'superSecret', function(err, token_data) {
+//       if (err) {
+//          return res.status(403).send('Error');
+//       } else {
+//         req.user_data = token_data;
+//         console.log("token_data"+req.user_data);
+//         next();
+//       }
+//     });
+
+//   } else {
+//     return res.status(403).send('No token');
+//   }
+// });
+
 
      router.route('/user').post(function(req,res) {
          login.findOne({token:req.headers.token}, function(err, user) {
@@ -96,7 +173,9 @@
            res.json("unauthroized");}
 
            else{
+            //  res.cookie('token',req.headers.token);
             res.json(user);
+
            }
          });
        });
@@ -175,8 +254,82 @@
      });
 
 
+           router.route('/searchcontact/:email').get(function(req,res) {
 
-          router.route('/delcontact').delete(function(req,res) {
+           login.findOne({token:req.headers.token}, function(err, user) {
+                if (err){
+                 console.log(err);
+                  res.json(err);
+                }
+           else if(user===null||undefined||""){
+                res.json("unauthroized");}
+
+                else{
+                 console.log(user);
+
+                 //db.coll.find({"auther" : "xyz" , "books.book1" : "b1"} , {"books.date" : 1})
+               //  db.usercontacts.findOne( {email:"kumar"},{"contacts.name":1,"contacts.email":1,"contacts.mobile":1})
+
+               contact.findOne({"contacts.email":req.params.email},{contacts:{$elemMatch:{"email":req.params.email}}},function(err,data){
+
+             // contact.findOne( {"contacts.email":req.params.email},{"contacts":1},function(err,data){
+            if(err) {
+                   console.log(err);
+                   res.json(err);  
+                    }
+               else {
+                 res.json(data);
+               console.log(data);  }
+
+          });  
+        }
+
+              });
+     });
+
+
+
+
+       //           router.route('/updatecontact/:email').post(function(req,res) {
+
+       //           login.findOne({token:req.headers.token}, function(err, user) {
+       //                if (err){
+       //                 console.log(err);
+       //                  res.json(err);
+       //                }
+       //           else if(user===null||undefined||""){
+       //                res.json("unauthroized");}
+
+       //                else{
+       //                 console.log(user);
+
+       //                 var con=new contact();
+       //                 con.email = req.body.email;
+       //                 con.name = req.body.name;
+       //                 con.mobile = req.body.mobile;
+
+       //                //db.recipes.update({"apple_pie.ingredients": "orange"},{ "$set": {"apple_pie.ingredients.$": "apple"} })
+
+       // con.update({"contacts.email":req.params.email},{ "$set":{"contacts.email.$":con.email,"contacts.name.$":con.name,"contacts.mobile.$":con.mobile}},function(err,data){
+
+       //             // contact.findOne( {"contacts.email":req.params.email},{"contacts":1},function(err,data){
+       //            if(err) {
+       //                   console.log(err);
+       //                   res.json(err);  
+       //                    }
+       //               else {
+       //                 res.json(data);
+       //               console.log(data);  }
+
+       //          });  
+       //        }
+
+       //              });
+       //     });
+
+
+
+          router.route('/delcontact/:email').delete(function(req,res) {
 
            login.findOne({token:req.headers.token}, function(err, user) {
                 if (err){
@@ -190,7 +343,7 @@
                  console.log(user);
 
 
-                 contact.update({email:user.email},{$pull:{contacts:{}}},function(err,data){
+                 contact.update({email:user.email},{$pull:{contacts:{email:req.params.email}}},function(err,data){
 
               // contact.findOne( {email:user.email}
               //,function(err,data){
@@ -221,19 +374,42 @@
         });
       });
 
-//       router.route('/logout').post(function(req,res) {
 
-//       login.update( { email:email },  { $unset: { token: token }},function(err,user){
+      router.route('/logout').post(function(req,res) {
 
-//  if(err) {
-//   console.log(err);  }
-//  else{
-//   console.log(user);
-//   res.json("successfully logout")  }
-// })
-//     });
+      	    	login.findOne({token:req.headers.token}, function(err, user) {
+
+      	    		if (err){
+      	    		 console.log(err);
+      	    		  res.json(err);
+      	    		}
+
+      	    			else if(user===null||undefined||""){
+      	    			     res.json("unauthroized");}
+
+      	    			     else{
+
+ 						        console.log(user);
+
+ 						         	//db.logins.update( { "email":"sahil" },  { $unset: { "password":"123"  }})
+
+ 						     login.update( { email:user.email },  { $unset: { token: req.headers.token }},function(err,user){
+
+ 						    if(err) {
+ 						     console.log(err);  }
+ 						    else{
+ 						     console.log(user);
+ 						     res.json("successfully logout")  }
+ 						   })
 
 
-              
+
+
+      	    			     }
+
+
+      	    	});
+
+      	 });
 
      module.exports =router;
